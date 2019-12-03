@@ -3,16 +3,15 @@ use std::io::{self, Read};
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
-struct Span {
-    direction: char,
+struct Span<'a> {
+    direction: &'a str,
     distance: u32
 }
 
-impl Span {
-    fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
-        let (dir, rest) = s.split_at(1);
-        let distance = rest.parse()?;
-        Ok(Self { direction: dir.chars().next().ok_or("Invalid span.")?, distance })
+impl<'a> Span<'a> {
+    fn from_str(s: &'a str) -> Result<Self, Box<dyn Error>> {
+        let (direction, rest) = s.split_at(1);
+        Ok(Self { direction, distance: rest.parse()? })
     }
 }
 
@@ -37,10 +36,10 @@ fn get_locations(wire: &[Span]) -> Result<HashMap<Point2D, u64>, Box<dyn Error>>
     for instruction in wire {
         for _ in 0..instruction.distance {
             match instruction.direction {
-                'U' => { y += 1; }
-                'D' => { y -= 1; }
-                'R' => { x += 1; }
-                'L' => { x -= 1; }
+                "U" => { y += 1; }
+                "D" => { y -= 1; }
+                "R" => { x += 1; }
+                "L" => { x -= 1; }
                 _ => return Err(From::from(format!("Fishy direction: {}", instruction.direction)))
 
             }
