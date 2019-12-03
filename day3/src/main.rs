@@ -15,12 +15,6 @@ impl<'a> Span<'a> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-struct Point2D {
-    x: i32,
-    y: i32
-}
-
 fn parse_input(input: &str) -> Result<Vec<Vec<Span>>, Box<dyn Error>> {
     input.split_whitespace().map(parse_wire).collect()
 }
@@ -29,7 +23,7 @@ fn parse_wire(wire: &str) -> Result<Vec<Span>, Box<dyn Error>> {
     wire.split(',').map(Span::from_str).collect()
 }
 
-fn get_locations(wire: &[Span]) -> Result<HashMap<Point2D, u64>, Box<dyn Error>> {
+fn get_locations(wire: &[Span]) -> Result<HashMap<(i32, i32), u64>, Box<dyn Error>> {
     let mut locations = HashMap::new();
     let mut steps = 0;
     let (mut x, mut y) = (0, 0);
@@ -44,7 +38,7 @@ fn get_locations(wire: &[Span]) -> Result<HashMap<Point2D, u64>, Box<dyn Error>>
 
             }
             steps += 1;
-            locations.insert(Point2D { x, y }, steps);
+            locations.insert((x, y), steps);
         }
     }
     Ok(locations)
@@ -59,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let left_locations = get_locations(left_wire)?;
     let right_locations = get_locations(right_wire)?;
 
-    let mut min_point: Option<Point2D> = None;
+    let mut min_point: Option<(i32, i32)> = None;
     let mut min_steps = u64::max_value();
     for (left_point, left_steps) in left_locations.iter() {
         if let Some(right_steps) = right_locations.get(left_point) {
