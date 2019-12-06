@@ -18,28 +18,24 @@ fn parse_graph(input: &str) -> Result<HashMap<&str, &str>, Box<dyn Error>> {
     Ok(graph)
 }
 
-fn get_path<'a>(graph: &'a HashMap<&'a str, &'a str>, outer: &'a str, target: &'a str) -> Vec<&'a str> {
+fn get_ancestors<'a>(graph: &'a HashMap<&'a str, &'a str>, mut node: &'a str) -> Vec<&'a str> {
     let mut result = Vec::new();
-    let mut curr = outer;
-    while let Some(&parent) = graph.get(curr) {
+    while let Some(&parent) = graph.get(node) {
         result.push(parent);
-        if parent == target {
-            return result;
-        }
-        curr = parent;
+        node = parent;
     }
-    panic!(format!("No path from {} to {}!", outer, target));
+    result
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
     let graph = parse_graph(&input)?;
-    let mut com_to_you = get_path(&graph, "YOU", "COM");
-    let mut com_to_san = get_path(&graph, "SAN", "COM");
-    while com_to_you.pop() == com_to_san.pop() {
+    let mut you_ancestors = get_ancestors(&graph, "YOU");
+    let mut san_ancestors = get_ancestors(&graph, "SAN");
+    while you_ancestors.pop() == san_ancestors.pop() {
         // continue going down the common ancestors
     }
-    println!("Result: {}", com_to_you.len() + com_to_san.len() + 2); // +2 because we popped one extra level
+    println!("Result: {}", you_ancestors.len() + san_ancestors.len() + 2); // +2 because we popped one extra level
     Ok(())
 }
