@@ -3,14 +3,14 @@ use std::io::{self, Read};
 use std::collections::HashMap;
 use std::collections::vec_deque::VecDeque;
 
-fn parse_orbit<'a>(s: &'a str) -> Result<(&'a str, &'a str), Box<dyn Error>> {
+fn parse_orbit(s: &str) -> Result<(&str, &str), Box<dyn Error>> {
     let mut parts = s.split(")");
     let inner = parts.next().ok_or("Invalid orbit.")?;
     let outer = parts.next().ok_or("Invalid orbit.")?;
     Ok((inner, outer))
 }
 
-fn parse_graph<'a>(input: &'a str) -> Result<HashMap<&'a str, &'a str>, Box<dyn Error>> {
+fn parse_graph(input: &str) -> Result<HashMap<&str, &str>, Box<dyn Error>> {
     let mut graph = HashMap::new();
     for orbit in input.split_whitespace().map(parse_orbit) {
         let (inner, outer) = orbit?;
