@@ -37,12 +37,12 @@ impl VM {
         Ok(Self { mem, inputs, outputs: VecDeque::new(), pc: 0, rb: 0, state: VMState::Ready })
     }
 
-    fn mode_for(i: usize, mode: usize) -> usize {
-        mode % 10_usize.pow((i+1) as u32) / 10_usize.pow(i as u32)
+    fn mode_for(i: u32, mode: u32) -> u32 {
+        mode % 10_u32.pow(i + 1) / 10_u32.pow(i)
     }
 
-    fn w_parm(&self, i: usize, modes: usize) -> usize {
-        let p = self.mem[self.pc + i+1];
+    fn w_parm(&self, i: u32, modes: u32) -> usize {
+        let p = self.mem[self.pc + (i as usize) + 1];
         match VM::mode_for(i, modes) {
             0 => p as usize,
             1 => panic!("Immediate mode for write parameters is invalid."),
@@ -51,8 +51,8 @@ impl VM {
         }
     }
 
-    fn r_parm(&self, i: usize, modes: usize) -> Word {
-        let p = self.mem[self.pc + i+1];
+    fn r_parm(&self, i: u32, modes: u32) -> Word {
+        let p = self.mem[self.pc + (i as usize) + 1];
         match VM::mode_for(i, modes) {
             0 => self.mem[p as usize],
             1 => p,
@@ -63,9 +63,9 @@ impl VM {
 
     pub fn run(self: &mut Self) {
         loop {
-            let instr = self.mem[self.pc] as usize;
+            let instr = self.mem[self.pc] as u32;
+            let opcode = instr % 100;
             let modes = instr / 100;
-            let opcode = instr - (modes * 100);
             match opcode {
                 1 => { // add
                     let a = self.r_parm(0, modes);
