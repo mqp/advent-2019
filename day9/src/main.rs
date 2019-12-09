@@ -3,6 +3,8 @@ use std::io::{self, Read};
 use std::num::ParseIntError;
 use std::collections::VecDeque;
 
+type Word = i64;
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 enum VMState {
     Ready,
@@ -13,35 +15,17 @@ enum VMState {
 #[derive(Debug)]
 struct VM {
     pc: usize,
-    rb: i128,
-    mem: Vec<i128>,
+    rb: Word,
+    mem: Vec<Word>,
     state: VMState,
-    inputs: VecDeque<i128>,
-    outputs: VecDeque<i128>
-}
-
-fn addr(base: i128, rb: i128, mode: usize) -> usize {
-    match mode {
-        0 => base as usize,
-        1 => panic!("Immediate mode for write parameters is invalid."),
-        2 => (base + rb) as usize,
-        _ => panic!(format!("Fishy mode: {}", mode))
-    }
-}
-
-fn val(mem: &[i128], data: i128, rb: i128, mode: usize) -> i128 {
-    match mode {
-        0 => mem[addr(data, rb, mode)],
-        1 => data,
-        2 => mem[addr(data, rb, mode)],
-        _ => panic!(format!("Fishy mode: {}", mode))
-    }
+    inputs: VecDeque<Word>,
+    outputs: VecDeque<Word>
 }
 
 impl VM {
 
-    fn create(program: &[i128], mem_size_128s: usize) -> Self {
-        let mut mem = vec![0; mem_size_128s];
+    fn create(program: &[Word], mem_size_words: usize) -> Self {
+        let mut mem = vec![0; mem_size_words];
         mem[0..program.len()].copy_from_slice(program);
         Self {
             mem,
@@ -53,10 +37,29 @@ impl VM {
         }
     }
 
+    fn w_parm(&self, i: usize, mode: usize) -> usize {
+        let p = self.mem[self.pc+i+1];
+        match mode {
+            0 => p as usize,
+            1 => panic!("Immediate mode for write parameters is invalid."),
+            2 => (p + self.rb) as usize,
+            _ => panic!(format!("Fishy mode: {}", mode))
+        }
+    }
+
+    fn r_parm(&self, i: usize, mode: usize) -> Word {
+        let p = self.mem[self.pc+i+1];
+        match mode {
+            0 => self.mem[p as usize],
+            1 => p,
+            2 => self.mem[(p + self.rb) as usize],
+            _ => panic!(format!("Fishy mode: {}", mode))
+        }
+    }
+
     fn run(self: &mut Self) {
-        let VM { ref mut pc, ref mut rb, ref mut mem, ref mut state, ref mut inputs, ref mut outputs } = self;
         loop {
-            let instr = mem[*pc] as usize;
+            let instr = self.mem[self.pc] as usize;
             let modenum = instr / 100;
             let opcode = instr - (modenum * 100);
             let modes = [
@@ -66,66 +69,65 @@ impl VM {
             ];
             match opcode {
                 1 => { // add
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    let dest = mem[*pc+3];
-                    mem[addr(dest, *rb, modes[2])] = val(mem, noun, *rb, modes[0]) + val(mem, verb, *rb, modes[1]);
-                    *pc += 4;
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    let c = self.w_parm(2, modes[2]);
+                    self.mem[c] = a + b;
+                    self.pc += 4;
                 }
                 2 => { // mul
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    let dest = mem[*pc+3];
-                    mem[addr(dest, *rb, modes[2])] = val(mem, noun, *rb, modes[0]) * val(mem, verb, *rb, modes[1]);
-                    *pc += 4;
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    let c = self.w_parm(2, modes[2]);
+                    self.mem[c] = a * b;
+                    self.pc += 4;
                 }
                 3 => { // input
-                    if let Some(n) = inputs.pop_front() {
-                        let dest = mem[*pc+1];
-                        mem[addr(dest, *rb, modes[0])] = n;
-                        *pc += 2;
+                    if let Some(n) = self.inputs.pop_front() {
+                        let dest = self.w_parm(0, modes[0]);
+                        self.mem[dest] = n;
+                        self.pc += 2;
                     } else {
-                        *state = VMState::Waiting;
+                        self.state = VMState::Waiting;
                         return;
                     }
                 }
                 4 => { // output
-                    let noun = mem[*pc+1];
-                    outputs.push_back(val(mem, noun, *rb, modes[0]));
-                    *pc += 2;
+                    let a = self.r_parm(0, modes[0]);
+                    self.outputs.push_back(a);
+                    self.pc += 2;
                 }
                 5 => { // jump if true
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    *pc = if val(mem, noun, *rb, modes[0]) != 0 { val(mem, verb, *rb, modes[1]) as usize } else { *pc+3 };
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    self.pc = if a != 0 { b as usize } else { self.pc + 3 };
                 }
                 6 => { // jump if false
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    *pc = if val(mem, noun, *rb, modes[0]) == 0 { val(mem, verb, *rb, modes[1]) as usize } else { *pc+3 };
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    self.pc = if a == 0 { b as usize } else { self.pc + 3 };
                 }
                 7 => { // lt
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    let dest = mem[*pc+3];
-                    mem[addr(dest, *rb, modes[2])] = if val(mem, noun, *rb, modes[0]) < val(mem, verb, *rb, modes[1]) { 1 } else { 0 };
-                    *pc += 4;
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    let c = self.w_parm(2, modes[2]);
+                    self.mem[c] = if a < b { 1 } else { 0 };
+                    self.pc += 4;
                 }
                 8 => { // eq
-                    let noun = mem[*pc+1];
-                    let verb = mem[*pc+2];
-                    let dest = mem[*pc+3];
-                    mem[addr(dest, *rb, modes[2])] = if val(mem, noun, *rb, modes[0]) == val(mem, verb, *rb, modes[1]) { 1 } else { 0 };
-                    *pc += 4;
+                    let a = self.r_parm(0, modes[0]);
+                    let b = self.r_parm(1, modes[1]);
+                    let c = self.w_parm(2, modes[2]);
+                    self.mem[c] = if a == b { 1 } else { 0 };
+                    self.pc += 4;
                 }
                 9 => { // relative base offset
-                    let noun = mem[*pc+1];
-
-                    *rb += val(mem, noun, *rb, modes[0]);
-                    *pc += 2;
+                    let a = self.r_parm(0, modes[0]);
+                    self.rb += a;
+                    self.pc += 2;
                 }
                 99 => {
-                    *state = VMState::Halted;
+                    self.state = VMState::Halted;
                     return;
                 }
                 _ => {
@@ -136,7 +138,7 @@ impl VM {
     }
 }
 
-fn parse_program(input: &str) -> Result<Vec<i128>, ParseIntError> {
+fn parse_program(input: &str) -> Result<Vec<Word>, ParseIntError> {
     input.split(',').map(|s| s.parse()).collect()
 }
 
