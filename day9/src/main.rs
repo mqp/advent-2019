@@ -22,23 +22,23 @@ struct VM {
     outputs: VecDeque<Word>
 }
 
+fn tokenize(input: &str) -> Result<Vec<Word>, ParseIntError> {
+    input.split(',').map(|s| s.parse()).collect()
+}
+
 impl VM {
 
-    fn create(program: &[Word], mem_size_words: usize) -> Self {
+    pub fn create(program: &str, initial_inputs: &[Word], mem_size_words: usize) -> Result<Self, ParseIntError> {
+        let contents = tokenize(program.trim_end())?;
         let mut mem = vec![0; mem_size_words];
-        mem[0..program.len()].copy_from_slice(program);
-        Self {
-            mem,
-            pc: 0,
-            rb: 0,
-            state: VMState::Ready,
-            inputs: VecDeque::new(),
-            outputs: VecDeque::new()
-        }
+        mem[0..contents.len()].copy_from_slice(&contents);
+        let mut inputs = VecDeque::new();
+        inputs.extend(initial_inputs);
+        Ok(Self { mem, inputs, outputs: VecDeque::new(), pc: 0, rb: 0, state: VMState::Ready })
     }
 
     fn w_parm(&self, i: usize, mode: usize) -> usize {
-        let p = self.mem[self.pc+i+1];
+        let p = self.mem[self.pc + i+1];
         match mode {
             0 => p as usize,
             1 => panic!("Immediate mode for write parameters is invalid."),
@@ -48,7 +48,7 @@ impl VM {
     }
 
     fn r_parm(&self, i: usize, mode: usize) -> Word {
-        let p = self.mem[self.pc+i+1];
+        let p = self.mem[self.pc + i+1];
         match mode {
             0 => self.mem[p as usize],
             1 => p,
@@ -57,7 +57,7 @@ impl VM {
         }
     }
 
-    fn run(self: &mut Self) {
+    pub fn run(self: &mut Self) {
         loop {
             let instr = self.mem[self.pc] as usize;
             let modenum = instr / 100;
@@ -138,17 +138,10 @@ impl VM {
     }
 }
 
-fn parse_program(input: &str) -> Result<Vec<Word>, ParseIntError> {
-    input.split(',').map(|s| s.parse()).collect()
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
-    let program = parse_program(input.trim_end())?;
-    println!("Memory: {:?}", program);
-    let mut vm = VM::create(&program, 10000);
-    vm.inputs.push_back(2);
+    let mut vm = VM::create(&input, &[2], 10000)?;
     vm.run();
     println!("Outputs: {:?}", vm.outputs);
     Ok(())
