@@ -3,7 +3,7 @@ use std::error::Error;
 use std::io::{self, Read};
 use regex::Regex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct Moon {
     position: [i64; 3],
     velocity: [i64; 3]
@@ -26,12 +26,11 @@ fn parse_moons(input: &str) -> Result<Vec<Moon>, Box<dyn Error>> {
     Ok(moons)
 }
 
-fn apply_gravity(moons: &mut [Moon], dimension: usize) {
-    let mut deltas: [i64; 4] = [0, 0, 0, 0];
-    for (i, mi) in moons.iter().enumerate() {
-        for (j, mj) in moons.iter().enumerate() {
+fn apply_gravity(moons: &mut [Moon], dim: usize) {
+    for i in 0..moons.len() {
+        for j in 0..moons.len() {
             if i != j {
-                deltas[i] += match mi.position[dimension].cmp(&mj.position[dimension]) {
+                moons[i].velocity[dim] += match moons[i].position[dim].cmp(&moons[j].position[dim]) {
                     Ordering::Less => 1,
                     Ordering::Greater => -1,
                     Ordering::Equal => 0
@@ -39,20 +38,17 @@ fn apply_gravity(moons: &mut [Moon], dimension: usize) {
             }
         }
     }
-    for (i, mi) in moons.iter_mut().enumerate() {
-        mi.velocity[dimension] += deltas[i];
-    }
 }
 
-fn apply_velocity(moons: &mut [Moon], dimension: usize) {
+fn apply_velocity(moons: &mut [Moon], dim: usize) {
     for m in moons.iter_mut() {
-        m.position[dimension] += m.velocity[dimension];
+        m.position[dim] += m.velocity[dim];
     }
 }
 
-fn step(moons: &mut [Moon], dimension: usize) {
-    apply_gravity(moons, dimension);
-    apply_velocity(moons, dimension);
+fn step(moons: &mut [Moon], dim: usize) {
+    apply_gravity(moons, dim);
+    apply_velocity(moons, dim);
 }
 
 fn gcd(mut m: usize, mut n: usize) -> usize {
