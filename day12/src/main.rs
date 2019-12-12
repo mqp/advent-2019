@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::error::Error;
 use std::io::{self, Read};
 use regex::Regex;
@@ -30,10 +31,10 @@ fn apply_gravity(moons: &mut [Moon], dimension: usize) {
     for (i, mi) in moons.iter().enumerate() {
         for (j, mj) in moons.iter().enumerate() {
             if i != j {
-                if mi.position[dimension] > mj.position[dimension] {
-                    deltas[i] -= 1;
-                } else if mi.position[dimension] < mj.position[dimension] {
-                    deltas[i] += 1;
+                deltas[i] += match mi.position[dimension].cmp(&mj.position[dimension]) {
+                    Ordering::Less => 1,
+                    Ordering::Greater => -1,
+                    Ordering::Equal => 0
                 }
             }
         }
