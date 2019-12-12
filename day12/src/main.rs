@@ -16,9 +16,9 @@ fn parse_moons(input: &str) -> Result<Vec<Moon>, Box<dyn Error>> {
         let mut matches = re.find_iter(line);
         moons.push(Moon {
             position: [
-                matches.next().unwrap().as_str().parse()?,
-                matches.next().unwrap().as_str().parse()?,
-                matches.next().unwrap().as_str().parse()?
+                matches.next().ok_or("Malformed input!")?.as_str().parse()?,
+                matches.next().ok_or("Malformed input!")?.as_str().parse()?,
+                matches.next().ok_or("Malformed input!")?.as_str().parse()?
             ],
             velocity: [0, 0, 0]
         });
@@ -64,34 +64,22 @@ fn lcm(m: usize, n: usize) -> usize {
     m * (n / gcd(m, n))
 }
 
+fn dimension_eq(xs: &[Moon], ys: &[Moon], dim: usize) -> bool {
+    xs.iter().zip(ys).all(|(x, y)| {
+        x.position[dim] == y.position[dim] && x.velocity[dim] == y.velocity[dim]
+    })
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
     let mut moons = parse_moons(&input)?;
-    let cycle_lengths: Vec<_> = (0..3).map(|d| {
-        let original = (
-            (moons[0].position[d],
-             moons[1].position[d],
-             moons[2].position[d],
-             moons[3].position[d]),
-            (moons[0].velocity[d],
-             moons[1].velocity[d],
-             moons[2].velocity[d],
-             moons[3].velocity[d]),
-        );
+    let cycle_lengths: Vec<_> = (0..3).map(|dim| {
+        let original = moons.clone();
         for i in 1.. {
-            step(&mut moons, d);
-            if original == (
-                (moons[0].position[d],
-                 moons[1].position[d],
-                 moons[2].position[d],
-                 moons[3].position[d]),
-                (moons[0].velocity[d],
-                 moons[1].velocity[d],
-                 moons[2].velocity[d],
-                 moons[3].velocity[d]),
-            ) {
-                println!("Dimension {}: repeated after {} steps", d, i);
+            step(&mut moons, dim);
+            if dimension_eq(&original, &moons, dim) {
+                println!("Dimension {}: repeated after {} steps", dim, i);
                 return i;
             }
         }
