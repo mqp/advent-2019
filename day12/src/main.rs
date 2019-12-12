@@ -4,28 +4,28 @@ use regex::Regex;
 
 #[derive(Debug, Clone)]
 struct Moon {
-    position: Vec<i64>,
-    velocity: Vec<i64>
+    position: [i64; 3],
+    velocity: [i64; 3]
 }
 
 fn parse_moons(input: &str) -> Result<Vec<Moon>, Box<dyn Error>> {
     let mut moons = Vec::new();
     let re = Regex::new(r"(\-?\d+)").unwrap();
-    for line in input.trim_end().split("\n") {
-        let matches: Vec<_> = re.find_iter(line).collect();
+    for line in input.trim_end().split('\n') {
+        let mut matches = re.find_iter(line);
         moons.push(Moon {
-            position: vec![
-                matches[0].as_str().parse()?,
-                matches[1].as_str().parse()?,
-                matches[2].as_str().parse()?
+            position: [
+                matches.next().unwrap().as_str().parse()?,
+                matches.next().unwrap().as_str().parse()?,
+                matches.next().unwrap().as_str().parse()?
             ],
-            velocity: vec![0, 0, 0]
+            velocity: [0, 0, 0]
         });
     }
     Ok(moons)
 }
 
-fn apply_gravity(moons: &mut Vec<Moon>, dimension: usize) {
+fn apply_gravity(moons: &mut [Moon], dimension: usize) {
     let mut deltas: [i64; 4] = [0, 0, 0, 0];
     for (i, mi) in moons.iter().enumerate() {
         for (j, mj) in moons.iter().enumerate() {
@@ -43,13 +43,13 @@ fn apply_gravity(moons: &mut Vec<Moon>, dimension: usize) {
     }
 }
 
-fn apply_velocity(moons: &mut Vec<Moon>, dimension: usize) {
+fn apply_velocity(moons: &mut [Moon], dimension: usize) {
     for m in moons.iter_mut() {
         m.position[dimension] += m.velocity[dimension];
     }
 }
 
-fn step(moons: &mut Vec<Moon>, dimension: usize) {
+fn step(moons: &mut [Moon], dimension: usize) {
     apply_gravity(moons, dimension);
     apply_velocity(moons, dimension);
 }
