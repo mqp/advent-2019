@@ -38,12 +38,17 @@ impl VM {
         Ok(Self { mem, inputs, outputs: VecDeque::new(), pc: 0, rb: 0, state: VMState::Ready })
     }
 
-    fn mode_for(i: u32, mode: u32) -> u32 {
-        mode % 10_u32.pow(i + 1) / 10_u32.pow(i)
+    fn mode_for(i: usize, mode: Word) -> Word {
+        match i {
+            0 => (mode % 10),
+            1 => (mode % 100) / 10,
+            2 => (mode % 1000) / 100,
+            _ => panic!("Only three parameter modes are supported.")
+        }
     }
 
-    fn parm(&self, i: u32, modes: u32) -> usize {
-        let p = self.pc + (i as usize) + 1;
+    fn parm(&self, i: usize, modes: Word) -> usize {
+        let p = self.pc + i + 1;
         match VM::mode_for(i, modes) {
             1 => p,
             0 => self.mem[p] as usize,
@@ -54,7 +59,7 @@ impl VM {
 
     pub fn run(self: &mut Self) {
         loop {
-            let instr = self.mem[self.pc] as u32;
+            let instr = self.mem[self.pc];
             let opcode = instr % 100;
             let modes = instr / 100;
             match opcode {
@@ -138,7 +143,7 @@ enum TileKind {
 }
 
 impl TileKind {
-    fn from_i64(i: i64) -> Result<Self, Box<dyn Error>> {
+    fn from_word(i: Word) -> Result<Self, Box<dyn Error>> {
         match i {
             0 => Ok(Self::Empty),
             1 => Ok(Self::Wall),
@@ -151,9 +156,9 @@ impl TileKind {
 }
 
 struct GameState {
-    score: i64,
-    paddle: (i64, i64),
-    ball: (i64, i64)
+    score: Word,
+    paddle: (Word, Word),
+    ball: (Word, Word)
 }
 
 fn apply_updates(state: &mut GameState, outputs: &mut VecDeque<Word>) -> Result<(), Box<dyn Error>> {
@@ -165,7 +170,7 @@ fn apply_updates(state: &mut GameState, outputs: &mut VecDeque<Word>) -> Result<
             state.score = n;
         } else {
             // we actually don't give a fuck about anything but the ball and paddle
-            let tile = TileKind::from_i64(n)?;
+            let tile = TileKind::from_word(n)?;
             if tile == TileKind::Ball {
                 state.ball = (x, y);
             } else if tile == TileKind::Paddle {
@@ -176,7 +181,7 @@ fn apply_updates(state: &mut GameState, outputs: &mut VecDeque<Word>) -> Result<
     Ok(())
 }
 
-fn determine_direction(state: &GameState) -> i64 {
+fn determine_direction(state: &GameState) -> Word {
     let (px, _py) = state.paddle;
     let (bx, _by) = state.ball;
     match px.cmp(&bx) {
