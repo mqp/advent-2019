@@ -42,22 +42,12 @@ impl VM {
         mode % 10_u32.pow(i + 1) / 10_u32.pow(i)
     }
 
-    fn w_parm(&self, i: u32, modes: u32) -> usize {
-        let p = self.mem[self.pc + (i as usize) + 1];
+    fn parm(&self, i: u32, modes: u32) -> usize {
+        let p = self.pc + (i as usize) + 1;
         match VM::mode_for(i, modes) {
-            0 => p as usize,
-            1 => panic!("Immediate mode for write parameters is invalid."),
-            2 => (p + self.rb) as usize,
-            _ => panic!(format!("Fishy mode: {}", modes))
-        }
-    }
-
-    fn r_parm(&self, i: u32, modes: u32) -> Word {
-        let p = self.mem[self.pc + (i as usize) + 1];
-        match VM::mode_for(i, modes) {
-            0 => self.mem[p as usize],
             1 => p,
-            2 => self.mem[(p + self.rb) as usize],
+            0 => self.mem[p] as usize,
+            2 => (self.mem[p] + self.rb) as usize,
             _ => panic!(format!("Fishy mode: {}", modes))
         }
     }
@@ -69,22 +59,22 @@ impl VM {
             let modes = instr / 100;
             match opcode {
                 1 => { // add
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    let c = self.w_parm(2, modes);
-                    self.mem[c] = a + b;
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    let c = self.parm(2, modes);
+                    self.mem[c] = self.mem[a] + self.mem[b];
                     self.pc += 4;
                 }
                 2 => { // mul
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    let c = self.w_parm(2, modes);
-                    self.mem[c] = a * b;
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    let c = self.parm(2, modes);
+                    self.mem[c] = self.mem[a] * self.mem[b];
                     self.pc += 4;
                 }
                 3 => { // input
                     if let Some(n) = self.inputs.pop_front() {
-                        let dest = self.w_parm(0, modes);
+                        let dest = self.parm(0, modes);
                         self.mem[dest] = n;
                         self.pc += 2;
                     } else {
@@ -93,37 +83,37 @@ impl VM {
                     }
                 }
                 4 => { // output
-                    let a = self.r_parm(0, modes);
-                    self.outputs.push_back(a);
+                    let a = self.parm(0, modes);
+                    self.outputs.push_back(self.mem[a]);
                     self.pc += 2;
                 }
                 5 => { // jump if true
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    self.pc = if a != 0 { b as usize } else { self.pc + 3 };
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    self.pc = if self.mem[a] != 0 { self.mem[b] as usize } else { self.pc + 3 };
                 }
                 6 => { // jump if false
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    self.pc = if a == 0 { b as usize } else { self.pc + 3 };
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    self.pc = if self.mem[a] == 0 { self.mem[b] as usize } else { self.pc + 3 };
                 }
                 7 => { // lt
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    let c = self.w_parm(2, modes);
-                    self.mem[c] = if a < b { 1 } else { 0 };
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    let c = self.parm(2, modes);
+                    self.mem[c] = if self.mem[a] < self.mem[b] { 1 } else { 0 };
                     self.pc += 4;
                 }
                 8 => { // eq
-                    let a = self.r_parm(0, modes);
-                    let b = self.r_parm(1, modes);
-                    let c = self.w_parm(2, modes);
-                    self.mem[c] = if a == b { 1 } else { 0 };
+                    let a = self.parm(0, modes);
+                    let b = self.parm(1, modes);
+                    let c = self.parm(2, modes);
+                    self.mem[c] = if self.mem[a] == self.mem[b] { 1 } else { 0 };
                     self.pc += 4;
                 }
                 9 => { // relative base offset
-                    let a = self.r_parm(0, modes);
-                    self.rb += a;
+                    let a = self.parm(0, modes);
+                    self.rb += self.mem[a];
                     self.pc += 2;
                 }
                 99 => {
