@@ -166,16 +166,16 @@ struct GameState {
     ball: (i64, i64)
 }
 
-fn apply_updates(state: &mut GameState, outputs: &[Word]) -> Result<(), Box<dyn Error>> {
-    for chunk in outputs.chunks(3) {
-        let x = chunk[0];
-        let y = chunk[1];
-        let val = chunk[2];
+fn apply_updates(state: &mut GameState, outputs: &mut VecDeque<Word>) -> Result<(), Box<dyn Error>> {
+    let mut vals = outputs.drain(..);
+    while let Some(x) = vals.next() {
+        let y = vals.next().ok_or("Outputs must come in triples!")?;
+        let n = vals.next().ok_or("Outputs must come in triples!")?;
         if x == -1 && y == 0 {
-            state.score = val;
+            state.score = n;
         } else {
             // we actually don't give a fuck about anything but the ball and paddle
-            let tile = TileKind::from_i64(val)?;
+            let tile = TileKind::from_i64(n)?;
             if tile == TileKind::Ball {
                 state.ball = (x, y);
             } else if tile == TileKind::Paddle {
@@ -204,8 +204,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut state = GameState { score: 0, paddle: (0, 0), ball: (0, 0) };
     loop {
         vm.run();
-        let (left, right) = vm.outputs.as_slices();
-        apply_updates(&mut state, &[left, right].concat())?;
+        apply_updates(&mut state, &mut vm.outputs)?;
         if vm.state == VMState::Halted {
             break;
         } else {
