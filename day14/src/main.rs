@@ -1,16 +1,17 @@
+use std::cmp::Ordering;
 use std::error::Error;
 use std::io::{self, Read};
 use std::collections::HashMap;
 
-type Reagent<'a> = (i64, String);
+type Reagent<'a> = (usize, &'a str);
 
-type Cookbook<'a> = HashMap<String, (i64, Vec<Reagent<'a>>)>;
+type Cookbook<'a> = HashMap<&'a str, (usize, Vec<Reagent<'a>>)>;
 
 fn parse_pair(input: &str) -> Result<Reagent, Box<dyn Error>> {
     let mut parts = input.split_whitespace();
     let qty = parts.next().ok_or("No quantity specified!")?.parse()?;
     let chemical = parts.next().ok_or("No chemical specified!")?;
-    Ok((qty, chemical.to_owned()))
+    Ok((qty, chemical))
 }
 
 fn parse_reactions(input: &str) -> Result<Cookbook, Box<dyn Error>> {
@@ -28,43 +29,24 @@ fn parse_reactions(input: &str) -> Result<Cookbook, Box<dyn Error>> {
     Ok(reactions)
 }
 
-fn required_for<'a>(book: &'a Cookbook, output_qty: i64, output: &'a str) -> HashMap<String, i64> {
-    let mut desired = HashMap::new(); // chemical: remaining desired qty
+fn required_for<'a>(book: &'a Cookbook, output: &'a str, output_qty: usize) -> HashMap<&'a str, usize> {
+    let mut desired = HashMap::new();
     let mut present = HashMap::new();
-    desired.insert(output.to_owned(), output_qty);
-    loop {
-        let mut desired_ch = String::new();
-        let mut desired_qty = 0;
-        for (ch, qty) in &desired {
-            if ch != "ORE" {
-                desired_ch = ch.clone();
-                desired_qty = *qty;
-                break;
+    desired.insert(output, output_qty);
+    while let Some((ch, (qty, inputs))) = book.iter().filter(|(&ch, _)| desired.contains_key(ch)).next() {
+        let desired_qty = desired.remove(ch).unwrap();
+        let batches = (desired_qty - 1) / qty + 1;
+        for (input_qty, input_ch) in inputs.iter() {
+            let already_have = present.entry(input_ch).or_insert(0);
+            let required_qty = input_qty * batches;
+            match (*already_have).cmp(&required_qty) {
+                Ordering::Less => { *desired.entry(input_ch).or_insert(0) += required_qty - *already_have; }
+                Ordering::Greater => { *already_have = *already_have - required_qty; }
+                _ => {}
             }
-        }
-        if desired_ch.is_empty() {
-            return desired;
-        }
-        desired.remove(&desired_ch);
-        let (per_batch, inputs) = book.get(&desired_ch).unwrap();
-        let batches = (desired_qty - 1) / per_batch + 1;
-        for (c_qty, c_chem) in inputs.iter() {
-            let already_have = match present.remove(c_chem) {
-                None => 0,
-                Some(n) => n
-            };
-            let required_qty = c_qty * batches;
-            if already_have > required_qty {
-                present.insert(c_chem.to_owned(), already_have - required_qty);
-            } else if already_have < required_qty {
-                *desired.entry(c_chem.to_owned()).or_insert(0) += required_qty - already_have;
-            }
-        }
-        if batches > 0 {
-            let leftover = per_batch * batches - desired_qty;
-            *present.entry(desired_ch.to_owned()).or_insert(0) += leftover;
         }
     }
+    desired
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -75,7 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut hi = 2;
     let target = 1_000_000_000_000;
     loop {
-        let req = *required_for(&reactions, hi, "FUEL").get("ORE").unwrap();
+        let req = *required_for(&reactions, "FUEL", hi).get("ORE").ok_or("No ore in the output!")?;
         println!("Required for {} fuel: {} ore", req, hi);
         if req < target {
             lo = hi;
@@ -86,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     while hi - lo >= 2 {
         let mid = lo + (hi - lo) / 2;
-        let req = *required_for(&reactions, mid, "FUEL").get("ORE").unwrap();
+        let req = *required_for(&reactions, "FUEL", mid).get("ORE").ok_or("No ore in the output!")?;
         println!("Required for {} fuel: {} ore", req, mid);
         if req > target {
             hi = mid
